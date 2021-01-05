@@ -7,7 +7,7 @@ const urljoin = require('url-join')
 const rimraf = require("rimraf")
 
 
-const REQUEST_RATE = 500
+const REQUEST_RATE = 5000
 var lastRequest
 /**
  * @returns {Promise<JSDOM>}
@@ -67,22 +67,25 @@ async function downloadJobPages (jobId)
         
         if (fs.existsSync(path))
         {
-            continue
-        }
-        else
-        {
-            console.log('Downloading', path)
-            const options =
+            const filecontent = fs.readFileSync(path, {encoding: 'utf-8'})
+            if (!filecontent.startsWith('<'))
             {
-                urls: [getPageUrl(jobId, i)],
-                directory: './temp',
-                sources: []
+                console.log('🔥 Page', path, 'not usable, redownloading.')
             }
-
-            const result = await scrape(options);
-            fs.copyFileSync('./temp/index.html', path)
-            rimraf.sync('./temp')
+            else continue
         }
+        
+        console.log('Downloading', path)
+        const options =
+        {
+            urls: [getPageUrl(jobId, i)],
+            directory: './temp',
+            sources: []
+        }
+
+        const result = await scrape(options);
+        fs.copyFileSync('./temp/index.html', path)
+        rimraf.sync('./temp')
     }
 }
 
@@ -109,7 +112,7 @@ async function parseJobPage (path)
         {
             const item = await fetchJobItem(itemUrl)
             job.crafts.push(item)
-            console.log(job.crafts.length)
+            console.log('Total item count:', job.crafts.length)
             fs.writeFileSync(savePath, JSON.stringify(job))
 
             console.log('✅ Downloaded niv.', item.level, item.name)

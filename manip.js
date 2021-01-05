@@ -39,17 +39,17 @@ input.onchange = async function ()
     document.body.appendChild(msg)
 
     var index = 0
-    var title
-    var usedInRecipes
+    var refreshContainer
     
     document.addEventListener('click', () =>
     {
-        if (title) document.body.removeChild(title)
-        if (usedInRecipes) document.body.removeChild(usedInRecipes)
-        var itemName = Object.keys(res)[index]
+        if (refreshContainer) document.body.removeChild(refreshContainer)
+        refreshContainer = document.createElement('div')
+        document.body.appendChild(refreshContainer)
 
+        var itemName = Object.keys(res)[index]
         var quantity = res[itemName]
-        title = document.createElement('h1')
+        const title = document.createElement('h1')
         title.innerText = itemName
         title.style.fontSize = '70px'
         title.style.fontFamily = 'Helvetica'
@@ -57,13 +57,17 @@ input.onchange = async function ()
         quantElem.innerText = ' x' + quantity
         quantElem.style.fontSize = '120px'
         title.appendChild(quantElem)
-        document.body.appendChild(title)
+        refreshContainer.appendChild(title)
         navigator.clipboard.writeText(itemName)
         
-        usedInRecipes = document.createElement('div')
+        const usedInRecipes = document.createElement('div')
         usedInRecipes.innerText = 'Utilisé pour : ' + targetCrafs.filter(c => c.recipe.some(i => i.resourceName == itemName)).map(c => c.name + ` (${c.recipe.find(i => i.resourceName == itemName).quantity})`).join(', ')
-        document.body.appendChild(usedInRecipes)
-        console.log(targetCrafs)
+        refreshContainer.appendChild(usedInRecipes)
+
+        const progress = document.createElement('div')
+        progress.style.marginTop = '10px'
+        progress.innerText = `Progression : ${index + 1}/${Object.keys(res).length}`
+        refreshContainer.appendChild(progress)
 
         index += 1
     })
