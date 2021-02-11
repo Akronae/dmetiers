@@ -9,10 +9,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cloudflare-scraper": "^1.0.7",
     "jsdom": "^16.4.0",
+    "puppeteer": "^5.5.0",
     "request": "^2.88.2",
     "rimraf": "^3.0.2",
-    "url-join": "^4.0.1",
-    "website-scraper": "^4.2.3"
+    "url-join": "^4.0.1"
   }
 }

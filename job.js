@@ -2,8 +2,8 @@ const { JSDOM } = require("jsdom")
 const request = require('request')
 const fs = require('fs')
 const Path = require('path')
-const scrape = require('website-scraper')
 const urljoin = require('url-join')
+const Scrapper = require('./scrapper')
 const rimraf = require("rimraf")
 
 
@@ -75,17 +75,9 @@ async function downloadJobPages (jobId)
             else continue
         }
         
-        console.log('Downloading', path)
-        const options =
-        {
-            urls: [getPageUrl(jobId, i)],
-            directory: './temp',
-            sources: []
-        }
-
-        const result = await scrape(options);
-        fs.copyFileSync('./temp/index.html', path)
-        rimraf.sync('./temp')
+        const pageUrl = getPageUrl(jobId, i)
+        console.log('Downloading', pageUrl, 'to', path)
+        await Scrapper.scrap(pageUrl, {savePath: path})
     }
 }
 
@@ -95,6 +87,8 @@ async function parseJobPage (path)
     const job = fs.existsSync(savePath) ? JSON.parse(fs.readFileSync(savePath)) : {crafts: []}
     const b = new JSDOM(fs.readFileSync(path)).window.document.body
     const recipes = b.querySelectorAll('.ak-panel-content tbody tr')
+
+    const {browser, page} = await Scrapper.newInstance()
 
     for (const recipe of recipes)
     {
@@ -106,11 +100,14 @@ async function parseJobPage (path)
             continue
         }
 
-        const itemUrl = 'https://www.dofus.com/' + itemElem.getAttribute('href')
+        const itemUrl = 'https://www.dofus.com' + itemElem.getAttribute('href')
         const itemLevel = recipe.querySelector('.ak-fixed-100').innerHTML
+        
+        await sleep(10000)
+
         try
         {
-            const item = await fetchJobItem(itemUrl)
+            const item = await fetchJobItem(page, itemUrl)
             job.crafts.push(item)
             console.log('Total item count:', job.crafts.length)
             fs.writeFileSync(savePath, JSON.stringify(job))
@@ -119,31 +116,40 @@ async function parseJobPage (path)
         }
         catch (e)
         {
+            console.log(e)
             console.error('Could not download', itemUrl)
         }
     }
 
+    browser.close()
+
     return job
 }
 
-async function fetchJobItem (pageUrl)
+function sleep (ms)
 {
-    const b = await pageToDomBody(pageUrl)
+    return new Promise(r => setTimeout(r, ms))
+}
+
+async function fetchJobItem (page, pageUrl)
+{
+    await page.goto(pageUrl)
+    // const b = await pageToDomBody(pageUrl)
 
     const item =
     {
-        name: b.querySelector('.ak-main-page .ak-return-link').textContent.replace(/\n/gm, ''),
-        level: Number.parseInt(b.querySelector('.ak-encyclo-detail-level').textContent.split(':').pop()),
+        name: (await Scrapper.getTextContent(page, await page.$('.ak-main-page .ak-return-link'))).replace(/\n/gm, '').trim(),
+        level: Number.parseInt((await Scrapper.getTextContent(page, await page.$('.ak-encyclo-detail-level'))).split(':').pop()),
         recipe: []
     }
 
-    const recipes = b.querySelectorAll('.ak-crafts .ak-content-list .ak-container .ak-list-element')
+    const recipes = await page.$$('.ak-crafts .ak-content-list .ak-container .ak-list-element')
     for (const recipe of recipes)
     {
         const itemStack =
         {
-            resourceName: recipe.querySelector('.ak-content .ak-linker').textContent,
-            quantity: Number.parseInt(recipe.querySelector('.ak-front').innerHTML)
+            resourceName: await Scrapper.getTextContent(page, await recipe.$('.ak-content .ak-linker')),
+            quantity: Number.parseInt(await Scrapper.getInnerHtml(page, await recipe.$('.ak-front')))
         }
         item.recipe.push(itemStack)
     }
